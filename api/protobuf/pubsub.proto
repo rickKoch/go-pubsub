@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package go_pubsub;
+
+option go_package = "github.com/rickKoch/go-pubsub";
+
+import "google/protobuf/empty.proto";
+
+service PubSubService {
+  rpc CreateTopic(CreateTopicRequest) returns (google.protobuf.Empty) {}
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (google.protobuf.Empty) {}
+  rpc PublishMessage(PublishMessageRequest) returns (google.protobuf.Empty) {}
+}
+
+message CreateTopicRequest {
+  string name = 1;
+}
+
+message CreateSubscriptionRequest {
+  string topicName = 1;
+  string subscriptionName = 2;
+}
+
+message PublishMessageRequest {
+  string topic = 1;
+  string message = 2;
+}

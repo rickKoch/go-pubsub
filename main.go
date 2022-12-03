@@ -4,14 +4,13 @@ import (
 	"context"
 
 	go_pubsub "github.com/rickKoch/go-pubsub/genproto/pubsub"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
 	logInit()
-	logrusEntry := logrus.NewEntry(logrus.StandardLogger())
+	logrusEntry := newDevelopomentLogger()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

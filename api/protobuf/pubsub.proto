@@ -10,6 +10,7 @@ service PubSubService {
   rpc CreateTopic(CreateTopicRequest) returns (google.protobuf.Empty) {}
   rpc CreateSubscription(CreateSubscriptionRequest) returns (google.protobuf.Empty) {}
   rpc PublishMessage(PublishMessageRequest) returns (google.protobuf.Empty) {}
+  rpc PullMessages(PullMessagesRequest) returns (PullMessagesResponse) {}
 }
 
 message CreateTopicRequest {
@@ -24,4 +25,16 @@ message CreateSubscriptionRequest {
 message PublishMessageRequest {
   string topic = 1;
   string message = 2;
+}
+
+message PullMessagesRequest {
+  string subscription = 1;
+}
+
+message PullMessagesResponse {
+    repeated Message messages = 1;
+}
+
+message Message {
+  string data = 1;
 }

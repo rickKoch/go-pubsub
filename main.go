@@ -11,16 +11,16 @@ import (
 
 func main() {
 	logInit()
-  logrusEntry := logrus.NewEntry(logrus.StandardLogger())
-  ctx, cancel := context.WithCancel(context.Background())
-  defer cancel()
+	logrusEntry := logrus.NewEntry(logrus.StandardLogger())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-  qm := NewQueueManager(ctx, logrusEntry)
-
+	qm := NewQueueManager(ctx, logrusEntry)
 
 	RunGRPCServer(logrusEntry, func(server *grpc.Server) {
 		svc := NewGrpcServer(qm)
 		go_pubsub.RegisterPubSubServiceServer(server, svc)
-    reflection.Register(server)
+    go svc.queueManager.Run()
+		reflection.Register(server)
 	})
 }

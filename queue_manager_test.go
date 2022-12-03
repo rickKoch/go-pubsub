@@ -4,10 +4,17 @@ import (
 	"context"
 	"reflect"
 	"testing"
+
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	ctx         = context.Background()
+	logrusEntry = logrus.NewEntry(logrus.StandardLogger())
 )
 
 func TestCreateQueueManger(t *testing.T) {
-	qm := NewQueueManager()
+	qm := NewQueueManager(ctx, logrusEntry)
 
 	if len(qm.topics) > 0 {
 		t.Error("Topics should be empty")
@@ -15,7 +22,7 @@ func TestCreateQueueManger(t *testing.T) {
 }
 
 func TestCreateTopic(t *testing.T) {
-	qm := NewQueueManager()
+	qm := NewQueueManager(ctx, logrusEntry)
 
 	topicName := "test-topic"
 
@@ -31,7 +38,7 @@ func TestCreateTopic(t *testing.T) {
 }
 
 func TestValidateTopicName(t *testing.T) {
-	qm := NewQueueManager()
+	qm := NewQueueManager(ctx, logrusEntry)
 
 	topicName := "test*topic"
 
@@ -47,26 +54,31 @@ func TestValidateTopicName(t *testing.T) {
 }
 
 func TestCreateSubscription(t *testing.T) {
-	qm := NewQueueManager()
+	qm := NewQueueManager(ctx, logrusEntry)
 
-	topic := "test-topic"
-	sub := "test-sub"
+	topicName := "test-topic"
+	subName := "test-sub"
 
-	_ = qm.CreateTopic(topic)
+	_ = qm.CreateTopic(topicName)
 
-	err := qm.CreateSubscription(topic, sub)
+	err := qm.CreateSubscription(topicName, subName)
 	if err != nil {
-		t.Errorf("Subscription with %s subscription name, failed to be created", sub)
+		t.Errorf("Subscription with %s subscription name, failed to be created", subName)
 	}
 
-	subscriptions, exists := qm.subscriptions[topic]
-	if !exists || len(subscriptions) == 0 {
-		t.Errorf("Subscription with %s subscription name, does not exist", sub)
+	topic, exists := qm.topics[topicName]
+	if !exists || topic.subscriptions[0] != subName {
+		t.Errorf("Topic '%s' does not exists or subscription doesn't belong to the topic", subName)
+	}
+
+	_, exists = qm.subscriptions[subName]
+	if !exists {
+		t.Errorf("Subscription with %s subscription name, does not exist", subName)
 	}
 }
 
 func TestValidateSubscription(t *testing.T) {
-	qm := NewQueueManager()
+	qm := NewQueueManager(ctx, logrusEntry)
 	topic := "test-topic"
 	sub := "test^sub"
 
@@ -103,22 +115,22 @@ func TestValidateSubscription(t *testing.T) {
 	}
 }
 
-func TestMessageProcessor(t *testing.T) {
+func TestRun(t *testing.T) {
 	topic := "test-topic"
 	sub := "test-sub"
 
 	ctx := context.Background()
 
-	qm := NewQueueManager()
+	qm := NewQueueManager(ctx, logrusEntry)
 	qm.CreateTopic(topic)
 	qm.CreateSubscription(topic, sub)
 
-	go qm.MessageProcessor(ctx)
+	go qm.Run()
 
 	msgTxt := "this is test message"
 	qm.Emit(topic, msgTxt)
 
-	msg := <-qm.subscriptions[topic][0].message
+	msg := <-qm.subscriptions[sub].message
 
 	if !reflect.DeepEqual(msg.data, msgTxt) {
 		t.Errorf("MessageProcessor = %v, want %v", msg.data, msgTxt)

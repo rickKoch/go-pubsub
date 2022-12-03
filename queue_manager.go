@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"regexp"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -13,70 +12,32 @@ type Message struct {
 	topic string
 }
 
-type Topic struct {
-	name string
-}
-
-func (topic *Topic) validate() error {
-  if topic.name == "" {
-
-  }
-	regex, err := regexp.Compile("^[a-zA-Z0-9_-]+$")
-	if err != nil {
-		return err
-	}
-	valid := regex.MatchString(topic.name)
-	if !valid {
-		return errors.New("Topic name is not correct. Please provide correct topic name ([a-zA-Z0-9_-]).")
-	}
-	return nil
-}
-
-type Subscription struct {
-	name    string
-	topic   string
-	message chan Message
-}
-
-func (subscription *Subscription) validate() error {
-	regex, err := regexp.Compile("^[a-zA-Z0-9_-]+$")
-	if err != nil {
-		return err
-	}
-	valid := regex.MatchString(subscription.name)
-	if !valid {
-		return errors.New("Subscription name is not correct. Please provide correct subscription name ([a-zA-Z0-9_-]).")
-	}
-	return nil
-}
-
 type QueueManager struct {
-	topics        map[string]Topic
-	subscriptions map[string][]*Subscription
+	topics        map[string]*Topic
+	subscriptions map[string]*Subscription
 	message       chan Message
 	logger        *logrus.Entry
+	ctx           context.Context
 }
 
 func NewQueueManager(ctx context.Context, logger *logrus.Entry) QueueManager {
-	qm := QueueManager{
-		topics:        make(map[string]Topic),
-		subscriptions: make(map[string][]*Subscription),
+	return QueueManager{
+		topics:        make(map[string]*Topic),
+		subscriptions: make(map[string]*Subscription),
 		message:       make(chan Message, 10),
-    logger: logger,
+		logger:        logger,
+		ctx:           ctx,
 	}
-
-  go qm.MessageProcessor(ctx)
-	return qm
 }
 
 func (qm *QueueManager) CreateTopic(name string) error {
-	topic := Topic{name: name}
+	topic := &Topic{name: name}
 	if err := topic.validate(); err != nil {
 		return err
 	}
 
 	qm.topics[name] = topic
-  qm.logger.Infof("Topic '%s' created", name)
+	qm.logger.Infof("Topic '%s' created", name)
 	return nil
 }
 
@@ -85,40 +46,52 @@ func (qm *QueueManager) CreateSubscription(topicName, subscriptionName string) e
 		return errors.Errorf("Topic with topic name %s, does not exist", topicName)
 	}
 
-	subscription := &Subscription{
-		name:    subscriptionName,
-		topic:   topicName,
-		message: make(chan Message, 10),
-	}
+	subscription := NewSubscription(qm.logger, topicName, subscriptionName)
 	if err := subscription.validate(); err != nil {
 		return err
 	}
 
-	qm.subscriptions[topicName] = append(qm.subscriptions[topicName], subscription)
-  qm.logger.Infof("Subscription '%s' created", subscriptionName)
+	qm.subscriptions[subscriptionName] = subscription
+	qm.topics[topicName].addSubscription(subscriptionName)
+	qm.logger.Infof("Subscription '%s' created", subscriptionName)
+
+	go qm.subscriptions[subscriptionName].MessageProcessor(qm.ctx)
+	qm.logger.Infof("Listening on subscription: '%s'", subscriptionName)
 	return nil
 }
 
 func (qm *QueueManager) Emit(topic string, message string) {
 	go func() {
 		qm.message <- Message{data: message, topic: topic}
-    qm.logger.Infof("Message on '%s' topic emitted", topic)
+		qm.logger.Infof("Message on '%s' topic emitted", topic)
 	}()
 }
 
-func (qm *QueueManager) MessageProcessor(ctx context.Context) {
+func (qm *QueueManager) Run() {
 	for {
 		select {
 		case msg := <-qm.message:
-			_, exists := qm.subscriptions[msg.topic]
+			_, exists := qm.topics[msg.topic]
 			if exists {
-				for _, sub := range qm.subscriptions[msg.topic] {
-					sub.message <- msg
-          qm.logger.Infof("Message on '%s' subscription processed", sub.name)
+				for _, subName := range qm.topics[msg.topic].subscriptions {
+					sub, exists := qm.subscriptions[subName]
+					if exists {
+						sub.message <- msg
+						qm.logger.Infof("Message on '%s' subscription processed", subName)
+					}
 				}
 			}
-		case <-ctx.Done():
+		case <-qm.ctx.Done():
 			return
 		}
 	}
+}
+
+func (qm *QueueManager) PullMessages(subscriptionName string) ([]Message, error) {
+	sub, exists := qm.subscriptions[subscriptionName]
+	if !exists {
+		return nil, errors.New("Subscription does not exist")
+	}
+
+	return sub.messages, nil
 }

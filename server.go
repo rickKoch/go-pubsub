@@ -63,7 +63,6 @@ func (g GrpcServer) CreateTopic(ctx context.Context, request *go_pubsub.CreateTo
 	return &empty.Empty{}, nil
 }
 
-
 func (g GrpcServer) CreateSubscription(ctx context.Context, request *go_pubsub.CreateSubscriptionRequest) (*empty.Empty, error) {
 	if err := g.queueManager.CreateSubscription(request.TopicName, request.SubscriptionName); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -76,4 +75,18 @@ func (g GrpcServer) PublishMessage(ctx context.Context, request *go_pubsub.Publi
 	g.queueManager.Emit(request.Topic, request.Message)
 
 	return &empty.Empty{}, nil
+}
+
+func (g GrpcServer) PullMessages(ctx context.Context, request *go_pubsub.PullMessagesRequest) (*go_pubsub.PullMessagesResponse, error) {
+	messages, err := g.queueManager.PullMessages(request.Subscription)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	var pullMessages []*go_pubsub.Message
+	for _, msg := range messages {
+		pullMessages = append(pullMessages, &go_pubsub.Message{Data: msg.data})
+	}
+
+	return &go_pubsub.PullMessagesResponse{Messages: pullMessages}, nil
 }

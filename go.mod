@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect

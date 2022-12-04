@@ -19,7 +19,7 @@ func main() {
 	RunGRPCServer(logrusEntry, func(server *grpc.Server) {
 		svc := NewGrpcServer(qm)
 		go_pubsub.RegisterPubSubServiceServer(server, svc)
-    go svc.queueManager.Run()
+		go svc.queueManager.Run()
 		reflection.Register(server)
 	})
 }

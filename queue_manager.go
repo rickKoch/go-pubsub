@@ -87,11 +87,11 @@ func (qm *QueueManager) Run() {
 	}
 }
 
-func (qm *QueueManager) PullMessages(subscriptionName string) ([]Message, error) {
-	sub, exists := qm.subscriptions[subscriptionName]
+func (qm *QueueManager) Subscription(name string) (*Subscription, error) {
+	sub, exists := qm.subscriptions[name]
 	if !exists {
 		return nil, errors.New("Subscription does not exist")
 	}
 
-	return sub.messages, nil
+	return sub, nil
 }

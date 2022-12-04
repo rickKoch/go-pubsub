@@ -11,6 +11,7 @@ service PubSubService {
   rpc CreateSubscription(CreateSubscriptionRequest) returns (google.protobuf.Empty) {}
   rpc PublishMessage(PublishMessageRequest) returns (google.protobuf.Empty) {}
   rpc PullMessages(PullMessagesRequest) returns (PullMessagesResponse) {}
+  rpc PullMessagesStreaming(PullMessagesRequest) returns (stream Message) {}
 }
 
 message CreateTopicRequest {

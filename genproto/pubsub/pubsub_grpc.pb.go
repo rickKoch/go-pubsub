@@ -27,6 +27,7 @@ type PubSubServiceClient interface {
 	CreateSubscription(ctx context.Context, in *CreateSubscriptionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PublishMessage(ctx context.Context, in *PublishMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PullMessages(ctx context.Context, in *PullMessagesRequest, opts ...grpc.CallOption) (*PullMessagesResponse, error)
+	PullMessagesStreaming(ctx context.Context, in *PullMessagesRequest, opts ...grpc.CallOption) (PubSubService_PullMessagesStreamingClient, error)
 }
 
 type pubSubServiceClient struct {
@@ -73,6 +74,38 @@ func (c *pubSubServiceClient) PullMessages(ctx context.Context, in *PullMessages
 	return out, nil
 }
 
+func (c *pubSubServiceClient) PullMessagesStreaming(ctx context.Context, in *PullMessagesRequest, opts ...grpc.CallOption) (PubSubService_PullMessagesStreamingClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PubSubService_ServiceDesc.Streams[0], "/go_pubsub.PubSubService/PullMessagesStreaming", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &pubSubServicePullMessagesStreamingClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PubSubService_PullMessagesStreamingClient interface {
+	Recv() (*Message, error)
+	grpc.ClientStream
+}
+
+type pubSubServicePullMessagesStreamingClient struct {
+	grpc.ClientStream
+}
+
+func (x *pubSubServicePullMessagesStreamingClient) Recv() (*Message, error) {
+	m := new(Message)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // PubSubServiceServer is the server API for PubSubService service.
 // All implementations should embed UnimplementedPubSubServiceServer
 // for forward compatibility
@@ -81,6 +114,7 @@ type PubSubServiceServer interface {
 	CreateSubscription(context.Context, *CreateSubscriptionRequest) (*emptypb.Empty, error)
 	PublishMessage(context.Context, *PublishMessageRequest) (*emptypb.Empty, error)
 	PullMessages(context.Context, *PullMessagesRequest) (*PullMessagesResponse, error)
+	PullMessagesStreaming(*PullMessagesRequest, PubSubService_PullMessagesStreamingServer) error
 }
 
 // UnimplementedPubSubServiceServer should be embedded to have forward compatible implementations.
@@ -98,6 +132,9 @@ func (UnimplementedPubSubServiceServer) PublishMessage(context.Context, *Publish
 }
 func (UnimplementedPubSubServiceServer) PullMessages(context.Context, *PullMessagesRequest) (*PullMessagesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PullMessages not implemented")
+}
+func (UnimplementedPubSubServiceServer) PullMessagesStreaming(*PullMessagesRequest, PubSubService_PullMessagesStreamingServer) error {
+	return status.Errorf(codes.Unimplemented, "method PullMessagesStreaming not implemented")
 }
 
 // UnsafePubSubServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -183,6 +220,27 @@ func _PubSubService_PullMessages_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PubSubService_PullMessagesStreaming_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PullMessagesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PubSubServiceServer).PullMessagesStreaming(m, &pubSubServicePullMessagesStreamingServer{stream})
+}
+
+type PubSubService_PullMessagesStreamingServer interface {
+	Send(*Message) error
+	grpc.ServerStream
+}
+
+type pubSubServicePullMessagesStreamingServer struct {
+	grpc.ServerStream
+}
+
+func (x *pubSubServicePullMessagesStreamingServer) Send(m *Message) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // PubSubService_ServiceDesc is the grpc.ServiceDesc for PubSubService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -207,6 +265,12 @@ var PubSubService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PubSubService_PullMessages_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "PullMessagesStreaming",
+			Handler:       _PubSubService_PullMessagesStreaming_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "pubsub.proto",
 }

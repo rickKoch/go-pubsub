@@ -78,15 +78,45 @@ func (g GrpcServer) PublishMessage(ctx context.Context, request *go_pubsub.Publi
 }
 
 func (g GrpcServer) PullMessages(ctx context.Context, request *go_pubsub.PullMessagesRequest) (*go_pubsub.PullMessagesResponse, error) {
-	messages, err := g.queueManager.PullMessages(request.Subscription)
+	sub, err := g.queueManager.Subscription(request.Subscription)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	var pullMessages []*go_pubsub.Message
-	for _, msg := range messages {
+	for _, msg := range sub.PullMessages() {
 		pullMessages = append(pullMessages, &go_pubsub.Message{Data: msg.data})
 	}
 
 	return &go_pubsub.PullMessagesResponse{Messages: pullMessages}, nil
+}
+
+func (g GrpcServer) PullMessagesStreaming(request *go_pubsub.PullMessagesRequest, stream go_pubsub.PubSubService_PullMessagesStreamingServer) error {
+	sub, err := g.queueManager.Subscription(request.Subscription)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	con, err := sub.CreateConnection()
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for _, msg := range sub.PullMessages() {
+		if err := stream.Send(&go_pubsub.Message{Data: msg.data}); err != nil {
+			return err
+		}
+	}
+
+	for {
+		select {
+		case msg := <-con.message:
+			if err := stream.Send(&go_pubsub.Message{Data: msg.data}); err != nil {
+				return err
+			}
+		case <-stream.Context().Done():
+			sub.RemoveConnection(con.id)
+			return nil
+		}
+	}
 }

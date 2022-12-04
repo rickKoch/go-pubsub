@@ -8,6 +8,7 @@ import (
 )
 
 type Message struct {
+	ackId int
 	data  string
 	topic string
 }
@@ -52,7 +53,7 @@ func (qm *QueueManager) CreateSubscription(topicName, subscriptionName string) e
 	}
 
 	qm.subscriptions[subscriptionName] = subscription
-	qm.topics[topicName].addSubscription(subscriptionName)
+	qm.topics[topicName].AddSubscription(subscriptionName)
 	qm.logger.Infof("Subscription '%s' created", subscriptionName)
 
 	go qm.subscriptions[subscriptionName].MessageProcessor(qm.ctx)
@@ -77,7 +78,7 @@ func (qm *QueueManager) Run() {
 					sub, exists := qm.subscriptions[subName]
 					if exists {
 						sub.message <- msg
-						qm.logger.Infof("Message on '%s' subscription processed", subName)
+						qm.logger.Infof("Message on '%s' subscription processing", subName)
 					}
 				}
 			}

@@ -116,21 +116,25 @@ func TestValidateSubscription(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	topic := "test-topic"
-	sub := "test-sub"
+	topicName := "test-topic"
+	subName := "test-sub"
 
 	ctx := context.Background()
 
 	qm := NewQueueManager(ctx, logrusEntry)
-	qm.CreateTopic(topic)
-	qm.CreateSubscription(topic, sub)
+	qm.CreateTopic(topicName)
+	qm.CreateSubscription(topicName, subName)
+  sub, err := qm.Subscription(subName)
+  if err != nil {
+		t.Errorf("Subscription with %s subscription name, failed to be fetched", subName)
+  }
 
 	go qm.Run()
 
 	msgTxt := "this is test message"
-	qm.Emit(topic, msgTxt)
+	qm.Emit(topicName, msgTxt)
 
-	msg := <-qm.subscriptions[sub].message
+	msg := <-sub.message
 
 	if !reflect.DeepEqual(msg.data, msgTxt) {
 		t.Errorf("MessageProcessor = %v, want %v", msg.data, msgTxt)

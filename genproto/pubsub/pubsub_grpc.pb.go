@@ -28,6 +28,7 @@ type PubSubServiceClient interface {
 	PublishMessage(ctx context.Context, in *PublishMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PullMessages(ctx context.Context, in *PullMessagesRequest, opts ...grpc.CallOption) (*PullMessagesResponse, error)
 	PullMessagesStreaming(ctx context.Context, in *PullMessagesRequest, opts ...grpc.CallOption) (PubSubService_PullMessagesStreamingClient, error)
+	AcknowledgeMessage(ctx context.Context, in *AcknowledgeMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type pubSubServiceClient struct {
@@ -106,6 +107,15 @@ func (x *pubSubServicePullMessagesStreamingClient) Recv() (*Message, error) {
 	return m, nil
 }
 
+func (c *pubSubServiceClient) AcknowledgeMessage(ctx context.Context, in *AcknowledgeMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/go_pubsub.PubSubService/AcknowledgeMessage", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PubSubServiceServer is the server API for PubSubService service.
 // All implementations should embed UnimplementedPubSubServiceServer
 // for forward compatibility
@@ -115,6 +125,7 @@ type PubSubServiceServer interface {
 	PublishMessage(context.Context, *PublishMessageRequest) (*emptypb.Empty, error)
 	PullMessages(context.Context, *PullMessagesRequest) (*PullMessagesResponse, error)
 	PullMessagesStreaming(*PullMessagesRequest, PubSubService_PullMessagesStreamingServer) error
+	AcknowledgeMessage(context.Context, *AcknowledgeMessageRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedPubSubServiceServer should be embedded to have forward compatible implementations.
@@ -135,6 +146,9 @@ func (UnimplementedPubSubServiceServer) PullMessages(context.Context, *PullMessa
 }
 func (UnimplementedPubSubServiceServer) PullMessagesStreaming(*PullMessagesRequest, PubSubService_PullMessagesStreamingServer) error {
 	return status.Errorf(codes.Unimplemented, "method PullMessagesStreaming not implemented")
+}
+func (UnimplementedPubSubServiceServer) AcknowledgeMessage(context.Context, *AcknowledgeMessageRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AcknowledgeMessage not implemented")
 }
 
 // UnsafePubSubServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -241,6 +255,24 @@ func (x *pubSubServicePullMessagesStreamingServer) Send(m *Message) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _PubSubService_AcknowledgeMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcknowledgeMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PubSubServiceServer).AcknowledgeMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/go_pubsub.PubSubService/AcknowledgeMessage",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PubSubServiceServer).AcknowledgeMessage(ctx, req.(*AcknowledgeMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PubSubService_ServiceDesc is the grpc.ServiceDesc for PubSubService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -263,6 +295,10 @@ var PubSubService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PullMessages",
 			Handler:    _PubSubService_PullMessages_Handler,
+		},
+		{
+			MethodName: "AcknowledgeMessage",
+			Handler:    _PubSubService_AcknowledgeMessage_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

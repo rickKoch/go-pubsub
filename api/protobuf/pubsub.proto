@@ -12,6 +12,7 @@ service PubSubService {
   rpc PublishMessage(PublishMessageRequest) returns (google.protobuf.Empty) {}
   rpc PullMessages(PullMessagesRequest) returns (PullMessagesResponse) {}
   rpc PullMessagesStreaming(PullMessagesRequest) returns (stream Message) {}
+  rpc AcknowledgeMessage(AcknowledgeMessageRequest) returns (google.protobuf.Empty) {}
 }
 
 message CreateTopicRequest {
@@ -28,6 +29,11 @@ message PublishMessageRequest {
   string message = 2;
 }
 
+message AcknowledgeMessageRequest {
+  string subscription = 1;
+  uint64 ackId = 2;
+}
+
 message PullMessagesRequest {
   string subscription = 1;
 }
@@ -37,5 +43,6 @@ message PullMessagesResponse {
 }
 
 message Message {
-  string data = 1;
+  uint64 ackId = 1;
+  string data = 2;
 }

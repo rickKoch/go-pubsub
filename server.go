@@ -85,7 +85,7 @@ func (g GrpcServer) PullMessages(ctx context.Context, request *go_pubsub.PullMes
 
 	var pullMessages []*go_pubsub.Message
 	for _, msg := range sub.PullMessages() {
-		pullMessages = append(pullMessages, &go_pubsub.Message{Data: msg.data})
+		pullMessages = append(pullMessages, &go_pubsub.Message{AckId: uint64(msg.ackId), Data: msg.data})
 	}
 
 	return &go_pubsub.PullMessagesResponse{Messages: pullMessages}, nil
@@ -103,7 +103,7 @@ func (g GrpcServer) PullMessagesStreaming(request *go_pubsub.PullMessagesRequest
 	}
 
 	for _, msg := range sub.PullMessages() {
-		if err := stream.Send(&go_pubsub.Message{Data: msg.data}); err != nil {
+		if err := stream.Send(&go_pubsub.Message{AckId: uint64(msg.ackId), Data: msg.data}); err != nil {
 			return err
 		}
 	}
@@ -111,7 +111,7 @@ func (g GrpcServer) PullMessagesStreaming(request *go_pubsub.PullMessagesRequest
 	for {
 		select {
 		case msg := <-con.message:
-			if err := stream.Send(&go_pubsub.Message{Data: msg.data}); err != nil {
+			if err := stream.Send(&go_pubsub.Message{AckId: uint64(msg.ackId), Data: msg.data}); err != nil {
 				return err
 			}
 		case <-stream.Context().Done():
@@ -119,4 +119,15 @@ func (g GrpcServer) PullMessagesStreaming(request *go_pubsub.PullMessagesRequest
 			return nil
 		}
 	}
+}
+
+func (g GrpcServer) AcknowledgeMessage(ctx context.Context, request *go_pubsub.AcknowledgeMessageRequest) (*empty.Empty, error) {
+	sub, err := g.queueManager.Subscription(request.Subscription)
+	if err != nil {
+		return &empty.Empty{}, status.Error(codes.Internal, err.Error())
+	}
+
+  sub.AcknowledgeMessage(int(request.AckId))
+
+	return &empty.Empty{}, nil
 }

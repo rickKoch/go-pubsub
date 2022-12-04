@@ -11,7 +11,7 @@ type Topic struct {
 	subscriptions []string
 }
 
-func (topic *Topic) addSubscription(name string) {
+func (topic *Topic) AddSubscription(name string) {
 	topic.subscriptions = append(topic.subscriptions, name)
 }
 
